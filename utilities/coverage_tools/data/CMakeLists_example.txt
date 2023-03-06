@@ -1,0 +1,93 @@
+project(test)
+
+add_subdirectory(googletest)
+include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+include_directories(${gmock_SOURCE_DIR}/include ${gmock_SOURCE_DIR})
+include_directories(${PROJ_ROOT_INCLUDE_DIR})
+
+# Coverage
+add_definitions(-fprofile-arcs -ftest-coverage)
+set(CMAKE_CXX_FLAGS "-std=c++14 -g -O0 -Wall -fprofile-arcs -ftest-coverage")
+set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
+
+# Get test coverage for test_all
+function(get_coverage TESTNAME)
+
+    # Create the gcov target. Run coverage tests with 'make gcov_${TESTNAME}'
+    add_custom_target("gcov_${TESTNAME}"        
+        COMMAND ${CMAKE_MAKE_PROGRAM} test
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )  
+
+    add_dependencies("gcov_${TESTNAME}" ${TESTNAME})
+
+    # Create the lcov target. Run result tests with 'make lcov_${TESTNAME}'
+    add_custom_target("lcov_${TESTNAME}"
+        COMMAND mkdir -p "lcoverage_${TESTNAME}"
+        )
+
+    add_custom_command(TARGET "lcov_${TESTNAME}"
+        COMMAND echo "=================== LCOV ===================="
+        COMMAND echo "Cleaning previous lcov"
+        COMMAND rm -f "lcoverage_${TESTNAME}/main_coverage.info"
+        COMMAND echo "-- Passing lcov tool under code coverage"
+        COMMAND lcov --capture --directory ../ --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
+        COMMAND echo "-- Extracting"
+        COMMAND lcov -e "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/include/*' '${CMAKE_SOURCE_DIR}/src/*' '${CMAKE_SOURCE_DIR}/test/*' -o "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
+        COMMAND echo "-- Removing non-ngen files"
+        COMMAND lcov --remove "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/test/googletest/*' --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
+        COMMAND echo "-- Generating HTML output files"
+        COMMAND genhtml "lcoverage_${TESTNAME}/main_coverage.info" --output-directory "lcoverage_${TESTNAME}" --rc lcov_branch_coverage=1 --legend
+    )
+
+    enable_testing()
+
+    add_test(${TESTNAME} ${CMAKE_CURRENT_BINARY_DIR}/${TESTNAME})
+
+    target_link_libraries(${TESTNAME} gmock)
+    target_link_libraries(${TESTNAME} pthread)
+    target_link_libraries(${TESTNAME} -fprofile-arcs)
+
+endfunction()
+
+function(add_test_custom TESTNAME NUM_FILES)
+    math(EXPR NUM_LINKS "${ARGC} - ${NUM_FILES}")
+    # message(STATUS "${TESTNAME} ${NUM_FILES} ${NUM_LINKS}")
+    list(SUBLIST ARGN 0 ${NUM_FILES} SOURCE_FILES)
+    list(SUBLIST ARGN ${NUM_FILES} ${NUM_LINKS} LINKED_LIBS)
+
+    # Also link these testing libraries for anything
+    # TODO: verify these do not remove current value at i = 0, but instead push it forward
+    list(INSERT LINKED_LIBS 0 gtest gtest_main)
+    message(STATUS "Generating ${TESTNAME}")
+
+    # Sanity check for duplicates
+    list(REMOVE_DUPLICATES LINKED_LIBS)
+
+    # Create the testing executable target and link the libraries
+    add_executable(${TESTNAME} ${SOURCE_FILES})
+    target_link_libraries(${TESTNAME} ${LINKED_LIBS})  
+
+    # Test coverage
+    if(COVERAGE)
+        # message(STATUS "Preparing code coverage for test: ${TESTNAME}")
+        get_coverage(${TESTNAME})
+    endif()
+    # endif()
+
+
+    # Perform the final GoogleTest boilerplate steps
+    gtest_discover_tests(${TESTNAME}
+            WORKING_DIRECTORY ${PROJECT_DIR}
+            PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_DIR}"
+            )
+    set_target_properties(${TESTNAME} PROPERTIES FOLDER test)
+endfunction()
+
+if (TEST_FILE)
+    file(READ ${TEST_FILE} FILESTR)
+    string(REPLACE "\n" ";" FILESTR_LIST ${FILESTR})
+    list(APPEND ${NETCDF_LIBRARIES} FILESTR_LIST)
+
+    add_test_custom(${FILESTR_LIST})
+endif()

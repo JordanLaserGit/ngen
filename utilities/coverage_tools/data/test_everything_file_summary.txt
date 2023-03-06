@@ -1,0 +1,95 @@
+NGEN TEST COVERAGE REPORT
+--------------------------
+
+test name: test_everything
+
+------Build options-----
+DBMI_C_LIB_ACTIVE : ON
+DBMI_FORTRAN_ACTIVE : ON
+DCMAKE_BUILD_TYPE : Debug
+DCOVERAGE : ON
+DET_QUIET : FALSE
+DLSTM_TORCH_LIB_ACTIVE : OFF
+DMPI_ACTIVE : OFF
+DNETCDF_ACTIVE : OFF
+DNGEN_ACTIVATE_PYTHON : ON
+DNGEN_ACTIVATE_ROUTING : OFF
+DNGEN_QUIET : FALSE
+DUDUNITS_ACTIVE : ON
+DDUDUNITS_QUIET : ON
+DQUIET : OFF
+
+------Including googletest files from folders -------
+/home/jlaser/code/ngen/test
+/home/jlaser/code/ngen/test/models
+/home/jlaser/code/ngen/test/models/hymod
+/home/jlaser/code/ngen/test/models/hymod/include
+/home/jlaser/code/ngen/test/models/tshirt
+/home/jlaser/code/ngen/test/models/tshirt/include
+/home/jlaser/code/ngen/test/models/lstm
+/home/jlaser/code/ngen/test/models/lstm/include
+/home/jlaser/code/ngen/test/utils
+/home/jlaser/code/ngen/test/utils/coverage
+/home/jlaser/code/ngen/test/utils/coverage/__pycache__
+/home/jlaser/code/ngen/test/core
+/home/jlaser/code/ngen/test/core/catchment
+/home/jlaser/code/ngen/test/core/catchment/giuh
+/home/jlaser/code/ngen/test/core/nexus
+/home/jlaser/code/ngen/test/core/mediator
+/home/jlaser/code/ngen/test/forcing
+/home/jlaser/code/ngen/test/realizations
+/home/jlaser/code/ngen/test/realizations/catchments
+/home/jlaser/code/ngen/test/routing
+/home/jlaser/code/ngen/test/geojson
+
+------Excluding googletest files from folders -------
+/home/jlaser/code/ngen/test/simulation_time
+/home/jlaser/code/ngen/test/utils/include
+
+There are googletest in these folders that you are not including:
+/home/jlaser/code/ngen/test/simulation_time
+/home/jlaser/code/ngen/test/utils/include
+
+------- TEST FILES INCLUDED -------
+models/hymod/include/Reservoir_Test.cpp
+models/hymod/include/Reservoir_Timeless_Test.cpp
+models/tshirt/include/TshirtTest.cpp
+utils/Partition_Test.cpp
+core/NetworkTests.cpp
+core/catchment/giuh/GIUH_Test.cpp
+core/nexus/NexusTests.cpp
+core/mediator/UnitsHelper_Tests.cpp
+forcing/NetCDFPerFeatureDataProvider_Test.cpp
+forcing/OptionalWrappedDataProvider_Test.cpp
+forcing/CsvPerFeatureForcingProvider_Test.cpp
+realizations/Formulation_Manager_Test.cpp
+realizations/catchments/Bmi_Cpp_Multi_Array_Test.cpp
+realizations/catchments/Bmi_Py_Formulation_Test.cpp
+realizations/catchments/Bmi_Fortran_Formulation_Test.cpp
+realizations/catchments/Bmi_Multi_Formulation_Test.cpp
+realizations/catchments/Bmi_Py_Adapter_Test.cpp
+realizations/catchments/Bmi_C_Cfe_IT.cpp
+realizations/catchments/Bmi_Cpp_Adapter_Test.cpp
+realizations/catchments/Bmi_Fortran_Adapter_Test.cpp
+realizations/catchments/Bmi_C_Adapter_Test.cpp
+realizations/catchments/Bmi_C_Formulation_Test.cpp
+realizations/catchments/Bmi_Cpp_Formulation_Test.cpp
+realizations/catchments/Bmi_C_Pet_IT.cpp
+realizations/catchments/Tshirt_C_Realization_Test.cpp
+geojson/JSONProperty_Test.cpp
+geojson/Feature_Test.cpp
+geojson/JSONGeometry_Test.cpp
+geojson/FeatureCollection_Test.cpp
+
+------- TEST FILES EXCLUDED -------
+simulation_time/Simulation_Time_Test.cpp
+utils/include/StreamOutputTest.cpp
+Schaake_Partitioning_Test.cpp
+HymodTest.cpp
+Pdm03_Test.cpp
+Et_Calc_Function_Test.cpp
+Et_All_Methods_Test.cpp
+models/lstm/include/LSTM_Test.cpp
+realizations/catchments/LSTM_Realization_Test.cpp
+routing/Routing_Py_Bind_Test.cpp
+core/nexus/NexusRemoteTests.cpp
