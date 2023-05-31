@@ -55,9 +55,7 @@ set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
 function(get_coverage TESTNAME)
 
     # Create the gcov target. Run coverage tests with 'make gcov_${TESTNAME}'
-    add_custom_target("gcov_${TESTNAME}"    
-        COMMAND echo "Cleaning previous any previous runs"      
-        COMMAND find . -name '*.gcda' '*.gcno' -delete    
+    add_custom_target("gcov_${TESTNAME}"     
         COMMAND ${CMAKE_MAKE_PROGRAM} test
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )  
