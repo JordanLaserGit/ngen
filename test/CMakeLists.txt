@@ -352,13 +352,10 @@ elseif()
     add_test_custom(
             compare_pet
             1
-            realizations/catchments/Bmi_C_Pet_IT.cpp
-            NGen::core
-            NGen::realizations_catchment
-            NGen::core_mediator
-            NGen::forcing
-            libudunits2
-            ${NETCDF_LIBRARIES}
+            routing/Routing_Py_Bind_Test.cpp
+            NGen::core # for filechecker utility
+            NGen::routing
+            pybind11::embed
     )
 
 

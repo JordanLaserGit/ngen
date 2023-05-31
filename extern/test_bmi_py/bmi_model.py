@@ -10,9 +10,12 @@ import pandas as pd
 import yaml
 from bmipy import Bmi
 
+from .bmi_grid import Grid, GridType
 # Here is the model we want to run
 from .model import ngen_model
 
+class UnknownBMIVariable(RuntimeError):
+    pass
 
 class bmi_model(Bmi):
 
@@ -27,6 +30,16 @@ class bmi_model(Bmi):
         self._model = None
         self.var_array_lengths = 1
 
+        self.grid_0: Grid = Grid(0, 0, GridType.scalar) #Grid 0 is a 0 dimension "grid" for scalars
+        self.grid_1: Grid = Grid(1, 2, GridType.uniform_rectilinear) #Grid 1 is a 2 dimensional grid
+        self.grid_2: Grid = Grid(2, 3, GridType.rectilinear) #Grid 2 is a 3 dimensional grid
+
+        self._grids = [self.grid_0, self.grid_1, self.grid_2]
+
+        #TODO this can be done more elegantly using a more coherent data structure representing a BMI variable
+        self._grid_map = {'INPUT_VAR_1': self.grid_0, 'INPUT_VAR_2': self.grid_0, 'GRID_VAR_1': self.grid_1,
+                          'OUTPUT_VAR_1': self.grid_0, 'OUTPUT_VAR_2': self.grid_0, 'OUTPUT_VAR_3': self.grid_0,
+                          'GRID_VAR_2': self.grid_1, 'GRID_VAR_3': self.grid_0}
     #----------------------------------------------
     # Required, static attributes of the model
     #----------------------------------------------
@@ -34,21 +47,24 @@ class bmi_model(Bmi):
         'model_name':         'Test Python model for Next Generation NWM',
         'version':            '1.0',
         'author_name':        'Jonathan Martin Frame',
-        'grid_type':          'scalar',
+        'grid_type':          'scalar&uniform_rectilinear',
         'time_units':         'seconds',
                }
 
     #---------------------------------------------
     # Input variable names (CSDMS standard names)
     #---------------------------------------------
-    _input_var_names = ['INPUT_VAR_1', 'INPUT_VAR_2']
-
+    #will use these implicitly for grid meta data, could in theory advertise them???
+    #grid_1_shape, grid_1_size, grid_1_origin
+    _input_var_names = ['INPUT_VAR_1', 'INPUT_VAR_2', 'GRID_VAR_1']
     _input_var_types = {'INPUT_VAR_1': float, 'INPUT_VAR_2': np.int32}
 
     #---------------------------------------------
     # Output variable names (CSDMS standard names)
     #---------------------------------------------
-    _output_var_names = ['OUTPUT_VAR_1', 'OUTPUT_VAR_2', 'OUTPUT_VAR_3']
+    #will use these implicitly for grid meta data, could in theory advertise them?
+    # grid_1_rank -- could probably establish a pattern grid_{id}_rank for managing different ones?
+    _output_var_names = ['OUTPUT_VAR_1', 'OUTPUT_VAR_2', 'OUTPUT_VAR_3', 'GRID_VAR_2', 'GRID_VAR_3']
 
     #------------------------------------------------------
     # Create a Python dictionary that maps CSDMS Standard
@@ -62,6 +78,8 @@ class bmi_model(Bmi):
                            'OUTPUT_VAR_1':['OUTPUT_VAR_1','-'],
                            'OUTPUT_VAR_2':['OUTPUT_VAR_2','-'],
                            'OUTPUT_VAR_3':['OUTPUT_VAR_3','-'],
+                           'GRID_VAR_1':['OUTPUT_VAR_1','-'],
+                           'GRID_VAR_2':['GRID_VAR_2','-'],
                             }
 
     #------------------------------------------------------
@@ -101,14 +119,22 @@ class bmi_model(Bmi):
         for parm in self._model_parameters_list:
             self._values[self._var_name_map_short_first[parm]] = self.cfg_bmi[parm]
         for model_input in self.get_input_var_names():
-            self._values[model_input] = np.zeros(self.var_array_lengths, dtype=float)
+            #This won't actually allocate the size, just the rank...
+            if self._grid_map[model_input].type == GridType.scalar:
+                self._values[model_input] = np.zeros( (), dtype=float)
+            else: 
+                self._values[model_input] = np.zeros(self._grid_map[model_input].shape, dtype=float)        
         #for model_input in self._input_var_types:
         #    self._values[model_input] = np.zeros(self.var_array_lengths, dtype=self._input_var_types[model_input])
         for model_output in self.get_output_var_names():
             if model_output == "OUTPUT_VAR_3":
                 self._values[model_output] = np.arange(3, dtype=float)
             else:
-                self._values[model_output] = np.zeros(self.var_array_lengths, dtype=float)
+                #TODO why is output var 3 an arange?  should this be a unique "grid"?
+                if self._grid_map[model_output].type == GridType.scalar:
+                    self._values[model_output] = np.zeros( (), dtype=float)
+                else: 
+                    self._values[model_output] = np.zeros(self._grid_map[model_output].shape, dtype=float)
         #print(self._values)
 
         # ------------- Set time to initial value -----------------------#
@@ -200,7 +226,14 @@ class bmi_model(Bmi):
         array_like
             Copy of values.
         """
-        dest[:] = self.get_value_ptr(var_name)
+        if var_name == "grid:count":
+            dest[...] = 2
+        elif var_name == "grid:ids":
+            dest[:] = [self.grid_0.id, self.grid_1.id]
+        elif var_name == "grid:ranks":
+            dest[:] = [self.grid_0.rank, self.grid_1.rank]
+        else:
+            dest[:] = self.get_value_ptr(var_name)
         return dest
 
     #-------------------------------------------------------------------
@@ -215,8 +248,39 @@ class bmi_model(Bmi):
         array_like
             Value array.
         """
-        
-        return self._values[var_name]
+
+        #Make sure to return a flattened array
+        if(var_name == "grid_1_shape"): # FIXME cannot expose shape as ptr, because it has to side affect variable construction...
+            return self.grid_1.shape
+        if(var_name == "grid_1_spacing"):
+            return self.grid_1.spacing
+        if(var_name == "grid_1_origin"):
+            return self.grid_1.origin
+        if(var_name == "grid_1_units"):
+            return self.grid_1.units
+        #grid 2 meta
+        if(var_name == "grid_2_shape"): # FIXME cannot expose shape as ptr, because it has to side affect variable construction...
+            return self.grid_2.shape
+        if(var_name == "grid_2_spacing"):
+            return self.grid_2.spacing
+        if(var_name == "grid_2_origin"):
+            return self.grid_2.origin
+        if(var_name == "grid_2_units"):
+            return self.grid_2.units
+
+        if var_name not in self._values.keys():
+            raise(UnknownBMIVariable(f"No known variable in BMI model: {var_name}"))
+
+        shape = self._values[var_name].shape
+        try:
+            #see if raveling is possible without a copy
+            self._values[var_name].shape = (-1,)
+            #reset original shape
+            self._values[var_name].shape = shape
+        except ValueError as e:
+            raise RuntimeError("Cannot flatten array without copying -- "+str(e).split(": ")[-1])
+
+        return self._values[var_name].ravel()#.reshape((-1,))
 
     #-------------------------------------------------------------------
     #-------------------------------------------------------------------
@@ -253,7 +317,13 @@ class bmi_model(Bmi):
         
         # all vars have grid 0 but check if its in names list first
         if name in (self._output_var_names + self._input_var_names):
-            return self._var_grid_id  
+            if(name == "GRID_VAR_1" or name == "GRID_VAR_2"):
+                return 1 #FIXME remove "magic number"
+            if(name == "GRID_VAR_3"):
+                return 2
+            else:
+                return self._var_grid_id
+        raise(UnknownBMIVariable(f"No known variable in BMI model: {name}"))
 
     #------------------------------------------------------------ 
     def get_var_itemsize(self, name):
@@ -261,14 +331,16 @@ class bmi_model(Bmi):
 
     #------------------------------------------------------------ 
     def get_var_location(self, name):
-        
+        #FIXME what about grid vars?
         if name in (self._output_var_names + self._input_var_names):
             return self._var_loc
 
     #-------------------------------------------------------------------
     def get_var_rank(self, long_var_name):
-
-        return np.int16(0)
+        if(long_var_name == "GRID_VAR_1" or long_var_name == "GRID_VAR_2"):
+            return np.int16(2) #FIXME magic number
+        else:
+            return np.int16(0)
 
     #-------------------------------------------------------------------
     def get_start_time( self ):
@@ -308,7 +380,35 @@ class bmi_model(Bmi):
         values : np.ndarray
               Array of new values.
         """ 
-        self._values[var_name][:] = values
+        if( var_name == 'grid_1_shape' ):
+            self.grid_1.shape = values
+            for var, grid in self._grid_map.items():
+                if grid.id == 1:
+                    #shape is set externally, need to reshape/allocate all vars associated with the grid
+                    self._values[var] = np.resize(self._values[var], self._grid_map[var].shape)
+        elif( var_name == 'grid_1_spacing' ):
+            self.grid_1.spacing = values
+        elif( var_name == 'grid_1_origin' ):
+            self.grid_1.origin = values
+        elif( var_name == 'grid_1_units' ):
+            self.grid_1.units = values
+        #grid 2 meta
+        elif( var_name == 'grid_2_shape' ):
+            self.grid_2.shape = values
+            for var, grid in self._grid_map.items():
+                if grid.id == 2:
+                    #shape is set externally, need to reshape/allocate all vars associated with the grid
+                    self._values[var] = np.resize(self._values[var], self._grid_map[var].shape)
+        elif( var_name == 'grid_2_spacing' ):
+            self.grid_2.spacing = values
+        elif( var_name == 'grid_2_origin' ):
+            self.grid_2.origin = values
+        elif( var_name == 'grid_2_units' ):
+            self.grid_2.units = values
+    
+        else:
+            #values is a FLATTENED array, need to reshape it...
+            self._values[var_name][...] = np.ndarray( self._values[var_name].shape, self._values[var_name].dtype, values )
 
     #------------------------------------------------------------ 
     def set_value_at_indices(self, var_name: str, indices: np.ndarray, src: np.ndarray):
@@ -399,51 +499,79 @@ class bmi_model(Bmi):
     
     #------------------------------------------------------------ 
     def get_grid_origin(self, grid_id, origin):
-        raise NotImplementedError("get_grid_origin") 
+
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                origin[:] = grid.origin
+                return
+        raise ValueError(f"get_grid_origin: grid_id {grid_id} unknown")
+
 
     #------------------------------------------------------------ 
     def get_grid_rank(self, grid_id):
  
-        # JG Edit
-        # 0 is the only id we have
-        if grid_id == 0: 
-            return 1
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                return grid.rank
+        raise ValueError(f"get_grid_rank: grid_id {grid_id} unknown")
 
     #------------------------------------------------------------ 
     def get_grid_shape(self, grid_id, shape):
-        raise NotImplementedError("get_grid_shape") 
+
+        for grid in self._grids:
+            if grid_id == grid.id:
+                shape[:] = grid.shape
+                return
+        raise ValueError(f"get_grid_shape: grid_id {grid_id} unknown")
 
     #------------------------------------------------------------ 
     def get_grid_size(self, grid_id):
        
-        # JG Edit
-        # 0 is the only id we have
-        if grid_id == 0:
-            return 1
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                return grid.size
+        raise ValueError(f"get_grid_size: grid_id {grid_id} unknown")
 
     #------------------------------------------------------------ 
     def get_grid_spacing(self, grid_id, spacing):
-        raise NotImplementedError("get_grid_spacing") 
+
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                spacing[:] = grid.spacing
+                return
+        raise ValueError(f"get_grid_spacing: grid_id {grid_id} unknown") 
 
     #------------------------------------------------------------ 
-    def get_grid_type(self, grid_id=0):
+    def get_grid_type(self, grid_id):
 
-        # JG Edit
-        # 0 is the only id we have        
-        if grid_id == 0:
-            return 'scalar'
-
-    #------------------------------------------------------------ 
-    def get_grid_x(self):
-        raise NotImplementedError("get_grid_x") 
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                return grid.type
+        raise ValueError(f"get_grid_type: grid_id {grid_id} unknown")
 
     #------------------------------------------------------------ 
-    def get_grid_y(self):
-        raise NotImplementedError("get_grid_y") 
+    def get_grid_x(self, grid_id: int, dest: np.ndarray):
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                dest[:] = grid.grid_x
+                return
+        raise ValueError(f"get_grid_x: grid_id {grid_id} unknown")
 
     #------------------------------------------------------------ 
-    def get_grid_z(self):
-        raise NotImplementedError("get_grid_z") 
+    def get_grid_y(self, grid_id: int, dest: np.ndarray):
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                dest[:] = grid.grid_y
+                return
+        raise ValueError(f"get_grid_y: grid_id {grid_id} unknown")
+
+    #------------------------------------------------------------ 
+    def get_grid_z(self, grid_id: int, dest: np.ndarray):
+        for grid in self._grids:
+            if grid_id == grid.id: 
+                dest[:] = grid.grid_z
+                return
+        raise ValueError(f"get_grid_z: grid_id {grid_id} unknown")
 
 
     #------------------------------------------------------------ 

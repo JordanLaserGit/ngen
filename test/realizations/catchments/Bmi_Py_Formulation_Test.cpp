@@ -216,6 +216,11 @@ void Bmi_Py_Formulation_Test::SetUp() {
                                                                        std::make_unique<CsvPerFeatureForcingProvider>(*examples[i].forcing_params),
                                                                        utils::StreamHandler());
         examples[i].formulation->create_formulation(examples[i].realization_config_properties_tree);
+
+        //Init the test grids
+        std::shared_ptr<models::bmi::Bmi_Py_Adapter> model_adapter = get_friend_bmi_model(*examples[i].formulation);
+        std::vector<int> shape = {2,3};
+        model_adapter->SetValue("grid_1_shape", shape.data());
     }
 
 }
@@ -269,7 +274,8 @@ void Bmi_Py_Formulation_Test::generate_realization_config(int ex_idx) {
               "                \"" + BMI_REALIZATION_CFG_PARAM_OPT__OUTPUT_PRECISION + "\": 6, "
               "                \"" + BMI_REALIZATION_CFG_PARAM_OPT__VAR_STD_NAMES + "\": { "
               "                      \"INPUT_VAR_2\": \"" + NGEN_STD_NAME_POTENTIAL_ET_FOR_TIME_STEP + "\","
-              "                      \"INPUT_VAR_1\": \"" + AORC_FIELD_NAME_PRECIP_RATE + "\""
+              "                      \"INPUT_VAR_1\": \"" + AORC_FIELD_NAME_PRECIP_RATE + "\","
+              "                      \"GRID_VAR_1\": \""  + AORC_FIELD_NAME_PRECIP_RATE +"\""
               "                },"
               + variables_line +
               "                \"uses_forcing_file\": " + (examples[ex_idx].uses_forcing_file ? "true" : "false") + ""
@@ -434,7 +440,8 @@ TEST_F(Bmi_Py_Formulation_Test, GetOutputLineForTimestep_0_a) {
 
     double response = examples[ex_index].formulation->get_response(0, 3600);
     std::string output = examples[ex_index].formulation->get_output_line_for_timestep(0, ",");
-    ASSERT_EQ(output, "0.000000,0.000000,1.000000");
+    //NOTE the last two values are simply the FIRST element of the grid vars
+    ASSERT_EQ(output, "0.000000,0.000000,1.000000,2.000000,3.000000");
 }
 
 /**
@@ -449,7 +456,8 @@ TEST_F(Bmi_Py_Formulation_Test, GetOutputLineForTimestep_0_b) {
 
     double response = examples[ex_index].formulation->get_response(543, 3600);
     std::string output = examples[ex_index].formulation->get_output_line_for_timestep(543, ",");
-    std::regex expected ("0.000001,(-?)0.000000,544.000000");
+    //NOTE the last two values are simply the FIRST element of the grid vars
+    std::regex expected ("0.000001,(-?)0.000000,544.000000,2.000001,3.000001");
     ASSERT_TRUE(std::regex_match(output, expected));
 }
 

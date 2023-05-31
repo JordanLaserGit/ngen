@@ -163,7 +163,8 @@ namespace models {
                 //   get_grid_rank or get_grid_size elements.) See Model grids for more information."
                 // Leaving this not implemented for now, since it is probably not yet needed, to make sure a proper
                 // solution to determining the array length is used.
-                throw runtime_error("GetGridX not yet implemented for Python BMI adapter");
+                // FIXME adjust comment
+                    get_grid_coordinates("get_grid_x", grid, 0, x);          
             }
 
             void GetGridY(const int grid, double *y) override {
@@ -172,7 +173,8 @@ namespace models {
                 //   get_grid_rank or get_grid_size elements.) See Model grids for more information."
                 // Leaving this not implemented for now, since it is probably not yet needed, to make sure a proper
                 // solution to determining the array length is used.
-                throw runtime_error("GetGridY not yet implemented for Python BMI adapter");
+                // FIXME adjust comment
+                get_grid_coordinates("get_grid_y", grid, 1, y);       
             }
 
             void GetGridZ(const int grid, double *z) override {
@@ -181,7 +183,8 @@ namespace models {
                 //   get_grid_rank or get_grid_size elements.) See Model grids for more information."
                 // Leaving this not implemented for now, since it is probably not yet needed, to make sure a proper
                 // solution to determining the array length is used.
-                throw runtime_error("GetGridZ not yet implemented for Python BMI adapter");
+                // FIXME adjust comment
+                get_grid_coordinates("get_grid_z", grid, 2, z);       
             }
 
             double GetStartTime() override;
@@ -226,9 +229,9 @@ namespace models {
                  * could produce duplicate "case" values.
                  */
                 //TODO: include other numpy type strings, https://numpy.org/doc/stable/user/basics.types.html
-                if (py_type_name == "int" && item_size == sizeof(short)) {
+                if ( (py_type_name == "int" || py_type_name == "int16") && item_size == sizeof(short)) {
                     return "short";
-                } else if (py_type_name == "int" && item_size == sizeof(int)) {
+                } else if ( (py_type_name == "int" || py_type_name == "int32" )&& item_size == sizeof(int)) {
                     return "int";
                 } else if (py_type_name == "int" && item_size == sizeof(long)) {
                     return "long";
@@ -342,11 +345,22 @@ namespace models {
             void get_and_copy_grid_array(const char* grid_func_name, const int grid, T* dest, int dest_length,
                                          const char* np_dtype)
             {
-                py::array_t<T> np_array = np.attr("zeros")(dest_length, "dtype"_a = np_dtype);
+                //This is required here because grid info can be a non dimensional `np.zeros( () )`
+                py::array_t<T> np_array;
+                if( dest_length == 0 ){
+                    np_array = np.attr("zeros")(1, "dtype"_a = np_dtype);
+                } else{
+                    np_array = np.attr("zeros")(dest_length, "dtype"_a = np_dtype);
+                }
                 bmi_model->attr(grid_func_name)(grid, np_array);
                 auto np_array_direct = np_array.template unchecked<1>();
-                for (int i = 0; i < dest_length; ++i)
-                    dest[i] = np_array_direct(i);
+                if( dest_length == 0 ){
+                    dest[0] = np_array_direct(0);
+                }
+                else{
+                    for (int i = 0; i < dest_length; ++i)
+                        dest[i] = np_array_direct(i);
+                }
             }
 
             /**
@@ -510,6 +524,10 @@ namespace models {
                 } else if (cxx_type == "long") {
                     set_value<long>(name, (long *) src);
                 } else if (cxx_type == "long long") {
+                    //FIXME this gets dicey -- if a python numpy array is of type np.int64 (long long), 
+                    //but a c++ int* is passed to this function as src, it will fail in undefined ways...
+                    //the template type overload may be perferred for doing SetValue from framework components
+                    //such as forcing providers...
                     set_value<long long>(name, (long long *) src);
                 } else if (cxx_type == "float") {
                     set_value<float>(name, (float *) src);
@@ -656,8 +674,42 @@ namespace models {
                     if (init_exception_msg.empty()) {
                         init_exception_msg = "Unknown Python model initialization exception.";
                     }
+                    //This message is lost and often contains valuable info.  Either need to break up and catch 
+                    //other possible exceptions, wrap all these in a custom exception, or at the very least, print
+                    //the original messge before it gets lost in this re-throw.
+                    std::cerr<<init_exception_msg<<std::endl;
                     throw e;
                 }
+            }
+
+            /**
+             * @brief Get the grid coordinates object for supported grid types
+             * 
+             * Currently supports querying x/y/z coordinates from BMI models on grids that are of type 
+             * "uniform_rectilinear" or "rectilinear".
+             * 
+             * This function uses other BMI functions to determine the correct number of elements to copy into dest.
+             * It is up to the caller to ensure that dest is properly allocated to the correct size before calling this function.
+             * 
+             * @param name name of the corresponding python BMI coordinate function to call, e.g. `get_grid_x`
+             * @param grid the grid id to query
+             * @param index a 0 based dimension index, (0, 1, 2) for (x, y, z)
+             * @param dest the destination pointer to put the coordinate data
+             * 
+             * * @throw std::runtime_error Thrown if the grid type corresponding to grid isn't supported.
+             */
+            void get_grid_coordinates(const char* name, const int grid, const int index, double* dest){
+                std::string grid_type = GetGridType(grid);
+                if( grid_type == "uniform_rectilinear" || grid_type == "rectilinear"){
+                    int rank = GetGridRank(grid);
+                    int shape[rank];
+                    GetGridShape(grid, shape);
+                    get_and_copy_grid_array<double>(name, grid, dest, shape[rank-index-1], "float");
+                    return;
+                }else{
+                    throw runtime_error("GetGrid<X|Y|Z> coordinates not yet implemented for Python BMI adapter for grid type "+grid_type);
+                }
+
             }
 
             /**
