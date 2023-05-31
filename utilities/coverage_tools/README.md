@@ -29,7 +29,7 @@ A shell script, test_coverage.sh manages the main workflow. The steps are:
 # Notes
 The output text file will be placed in test/coverage and is designed to be read by /test/CMakeLists.txt. See the [example](https://github.com/JordanLaserGit/coverage_tools/blob/main/data/CMakeLists_example.txt)
 
-The code coverage report is output to project_path/"'test_name'-build"/test/lcoverage_'test_name'
+The code coverage report is output to project_path/"'test_name'-build"/test/lcoverage_'test_name'/index.html
 
 
 
