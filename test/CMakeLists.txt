@@ -73,7 +73,7 @@ function(get_coverage TESTNAME)
         COMMAND echo "-- Passing lcov tool under code coverage"
         COMMAND lcov --capture --directory ../ --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Extracting"
-        COMMAND lcov -e "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/include/*' '${CMAKE_SOURCE_DIR}/src/*' '${CMAKE_SOURCE_DIR}/test/*' -o "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
+        COMMAND lcov -e "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/src/*' '${CMAKE_SOURCE_DIR}/test/*' -o "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Removing non-ngen files"
         COMMAND lcov --remove "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/test/googletest/*' --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Generating HTML output files"

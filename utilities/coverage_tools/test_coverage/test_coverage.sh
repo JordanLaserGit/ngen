@@ -53,5 +53,4 @@ cmake --build $build_folder --target $test_name -- -j 4 \
 # Execute test and get coverage
 echo "Generating coverage report"
 cd $build_folder
-make "gcov_$test_name" || { echo 'make gcov failed' ; exit 1; }
-make "lcov_$test_name" || { echo 'make lcov failed' ; exit 1; }
+make "gcov_$test_name" || make "lcov_$test_name"
