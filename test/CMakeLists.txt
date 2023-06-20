@@ -1,5 +1,5 @@
 
-project(test)
+project(TestNextGen)
 
 add_subdirectory(googletest)
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
@@ -46,7 +46,7 @@ endif()
 
 
 # Coverage
-add_definitions(-fprofile-arcs -ftest-coverage)
+# add_definitions(-fprofile-arcs -ftest-coverage)
 set(CMAKE_CXX_FLAGS "-std=c++14 -g -O0 -Wall -fprofile-arcs -ftest-coverage")
 set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
 
@@ -55,25 +55,26 @@ set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
 function(get_coverage TESTNAME)
 
     # Create the gcov target. Run coverage tests with 'make gcov_${TESTNAME}'
-    add_custom_target("gcov_${TESTNAME}"     
+    add_custom_target("gcov"        
         COMMAND ${CMAKE_MAKE_PROGRAM} test
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )  
 
-    add_dependencies("gcov_${TESTNAME}" ${TESTNAME})
+    add_dependencies("gcov" ${TESTNAME})
 
     # Create the lcov target. Run result tests with 'make lcov_${TESTNAME}'
-    add_custom_target("lcov_${TESTNAME}"
+    add_custom_target("lcov"
         COMMAND mkdir -p "lcoverage_${TESTNAME}"
         )
 
-    # For clean, remove all .gcda .gca files in TESTNAME-build/test/CMAkeFiles/TESTNAME.dir
-    add_custom_command(TARGET "lcov_${TESTNAME}"
+    add_custom_command(TARGET "lcov"
         COMMAND echo "=================== LCOV ===================="
+        COMMAND echo "Cleaning previous lcov"
+        COMMAND rm -f "lcoverage_${TESTNAME}/main_coverage.info"
         COMMAND echo "-- Passing lcov tool under code coverage"
         COMMAND lcov --capture --directory ../ --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Extracting"
-        COMMAND lcov -e "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/src/*' '${CMAKE_SOURCE_DIR}/test/*' -o "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
+        COMMAND lcov -e "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/src/*' -o "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Removing non-ngen files"
         COMMAND lcov --remove "lcoverage_${TESTNAME}/main_coverage.info" '${CMAKE_SOURCE_DIR}/test/googletest/*' --output-file "lcoverage_${TESTNAME}/main_coverage.info" --rc lcov_branch_coverage=1
         COMMAND echo "-- Generating HTML output files"
