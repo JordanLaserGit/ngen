@@ -13,6 +13,11 @@ Next, clone the github repository:
 Then we can build with docker:
 `cd ngen && docker build . --file ./docker/CENTOS_NGEN_RUN.dockerfile --tag localbuild/ngen:latest`
 
+If the following error occurs:
+`ERROR: permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/_ping": dial unix /var/run/docker.sock: connect: permission denied`
+Try adding user to docker permission:
+`sudo usermod -aG docker $USER`
+Then log out and back in for user change to take effect.
 
 ## Linux Manual Install Instructions
 **First, open a linux terminal and enter the following command based on your linux distribution:**
